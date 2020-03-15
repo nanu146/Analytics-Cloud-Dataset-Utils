@@ -56,10 +56,8 @@ import com.sforce.dataset.loader.EbinFormatWriter;
 import com.sforce.dataset.loader.file.schema.ext.ExternalFileSchema;
 import com.sforce.dataset.server.DatasetUtilServer;
 import com.sforce.dataset.util.CharsetChecker;
-import com.sforce.dataset.util.DatasetAugmenter;
 import com.sforce.dataset.util.DatasetDownloader;
 import com.sforce.dataset.util.DatasetUtils;
-import com.sforce.dataset.util.SfdcExtracter;
 import com.sforce.dataset.util.SfdcUtils;
 import com.sforce.dataset.util.XmdUploader;
 import com.sforce.soap.partner.PartnerConnection;
@@ -71,7 +69,7 @@ public class DatasetUtilMain {
 	@SuppressWarnings("unused")
 	private static final boolean isJdk14LoggerConfigured = DatasetUtils.configureLog4j();	
 	
-	public static final String[][] validActions = {{"load","Load CSV"}, {"defineExtractFlow","Define SFDC Extract Data Flow"}, {"defineAugmentFlow","Define Dataset Augment Data Flow"},{"downloadXMD","Download All XMD Json Files"}, {"uploadXMD","Upload User XMD Json File"}, {"detectEncoding","Detect file encoding"}, {"downloadErrorFile","Fetch CSV Upload Error Report"}};
+	public static final String[][] validActions = {{"load","Load CSV"}, {"downloadXMD","Download All XMD Json Files"}, {"uploadXMD","Upload User XMD Json File"}, {"detectEncoding","Detect file encoding"}, {"downloadErrorFile","Fetch CSV Upload Error Report"}};
 
 	public static void main(String[] args) {
 
@@ -804,29 +802,6 @@ public class DatasetUtilMain {
 					e.printStackTrace(System.out);
 					return false;
 				}
-			}else if(action.equalsIgnoreCase("defineAugmentFlow"))
-			{
-				
-				try {
-					DatasetAugmenter.augmentEM(partnerConnection);
-				} catch (Exception e) {
-					e.printStackTrace(System.out);
-					return false;
-				}
-			}else if(action.equalsIgnoreCase("defineExtractFlow"))
-			{
-				if(params.rootObject==null)
-				{
-					System.out.println("\nERROR: rootObject must be specified");
-					return false;
-				}
-				
-				try{
-					SfdcExtracter.extract(params.rootObject,params.dataset, partnerConnection, params.rowLimit);
-				} catch (Exception e) {
-					e.printStackTrace(System.out);
-					return false;
-				}
 			}else if(action.equalsIgnoreCase("downloadErrorFile"))
 			{
 				if (params.dataset==null) 
@@ -1025,30 +1000,6 @@ public class DatasetUtilMain {
 			{
 				params.dataset = getInputFromUser("Enter dataset name: ", true, false);						
 			}
-		}else if(action.equalsIgnoreCase("defineAugmentFlow"))
-		{
-				
-		}else if(action.equalsIgnoreCase("defineExtractFlow"))
-		{
-			while (params.rootObject==null || params.rootObject.isEmpty()) 
-			{
-				String tmp = getInputFromUser("Enter root SObject name for Extract: ", true, false);
-				Map<String, String> objectList = null;
-				try {
-					objectList = SfdcUtils.getObjectList(partnerConnection, Pattern.compile("\\b"+tmp+"\\b"), false);
-				} catch (ConnectionException e) {
-				}
-				if(objectList==null || objectList.size()==0)
-				{
-					System.out.println("\nError: Object {"+tmp+"} not found");
-					System.out.println();
-				}else
-				{
-					params.rootObject = tmp;
-					break;
-				}
-			}
-				
 		}else if(action.equalsIgnoreCase("downloadErrorFile"))
 		{
 			if (params.dataset==null || params.dataset.isEmpty()) 
@@ -1208,5 +1159,5 @@ public class DatasetUtilMain {
         }       */
         System.out.println("*******************************************************************************\n");					 
     }
-			
+    
 }

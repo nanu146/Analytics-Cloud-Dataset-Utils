@@ -125,7 +125,7 @@ public class XmdUploader {
 			{
 
 			//URI listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), "/insights/internal_api/v1.0/esObject/edgemart", "current=true&alias="+datasetAlias,null); //Tomasz commented
-			URI listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), "/services/data/v39.0/wave/datasets", null,null);	//Tomasz added		
+			URI listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), "/services/data/v48.0/wave/datasets", null,null);	//Tomasz added		
 			HttpGet listEMPost = new HttpGet(listEMURI);
 			listEMPost.setConfig(requestConfig);
 			
@@ -248,6 +248,10 @@ public class XmdUploader {
 			HttpEntity responseEntity = response.getEntity();
 			InputStream is = responseEntity.getContent();
 			String responseString = IOUtils.toString(is, "UTF-8");
+			if(responseString.contains("errorCode")){
+				System.out.println("Failed to perform the action.\n Error: "+responseString);
+				return false;
+			}
 			if(responseString!=null && !responseString.trim().isEmpty() )
 			{
 				try 
