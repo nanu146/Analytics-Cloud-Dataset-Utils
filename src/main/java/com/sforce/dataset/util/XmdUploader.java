@@ -30,28 +30,25 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.FileUtils; //Tomasz added
-import org.apache.http.HttpEntity;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;   //Tomasz added
-import org.apache.http.entity.ContentType;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.impl.client.CloseableHttpClient;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sforce.dataset.RequestResponse;
+import com.sforce.dataset.Requests;
 import com.sforce.soap.partner.PartnerConnection;
 import com.sforce.ws.ConnectionException;
 import com.sforce.ws.ConnectorConfig;
+import com.sforce.dataset.PartnerConnectManager;
+import com.sforce.dataset.RequestResponse;
+import com.sforce.dataset.Requests;
 
 /**
  * The Class XmdUploader.
@@ -68,14 +65,14 @@ public class XmdUploader {
 	 * @param datasetVersion the dataset version
 	 * @param partnerConnection the partner connection
 	 * @return true, if successful
-	 * @throws URISyntaxException the URI syntax exception
-	 * @throws ClientProtocolException the client protocol exception
-	 * @throws IOException Signals that an I/O exception has occurred.
-	 * @throws ConnectionException the connection exception
+	 * @throws Exception 
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	public static boolean uploadXmd(String userXmdFile, String datasetAlias, String datasetId,String datasetVersion, PartnerConnection partnerConnection) throws URISyntaxException, ClientProtocolException, IOException, ConnectionException
+	public static boolean uploadXmd(String userXmdFile, String datasetAlias, String datasetId,String datasetVersion, PartnerConnection partnerConnection) throws Exception
 	{
+		Requests apiCaller = new Requests();
+		HashMap<String, String> httpHeaders = new HashMap<String, String>();
+		
 		if(datasetAlias==null||datasetAlias.trim().isEmpty())
 		{
 			throw new IllegalArgumentException("datasetAlias cannot be blank");
@@ -125,14 +122,15 @@ public class XmdUploader {
 			{
 
 			//URI listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), "/insights/internal_api/v1.0/esObject/edgemart", "current=true&alias="+datasetAlias,null); //Tomasz commented
-			URI listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), "/services/data/v48.0/wave/datasets", null,null);	//Tomasz added		
-			HttpGet listEMPost = new HttpGet(listEMURI);
-			listEMPost.setConfig(requestConfig);
+			URI listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), "/services/data/v48.0/wave/datasets", null,null);	//Tomasz added
+			httpHeaders.put("Authorization", "OAuth "+sessionID);
+			RequestResponse<InputStream> xmdResponse = apiCaller.Call(listEMURI.toURL(),httpHeaders, "  ", "GET");
+			//listEMPost.setConfig(requestConfig);
 			
-			listEMPost.addHeader("Authorization","OAuth "+sessionID);			
-			CloseableHttpResponse emresponse = httpClient.execute(listEMPost);
-			HttpEntity emresponseEntity = emresponse.getEntity();
-			InputStream emis = emresponseEntity.getContent();
+			//listEMPost.addHeader("Authorization","OAuth "+sessionID);			
+			//CloseableHttpResponse emresponse = httpClient.execute(listEMPost);
+			//HttpEntity emresponseEntity = emresponse.getEntity();
+			InputStream emis = xmdResponse.response;
 			String emList = IOUtils.toString(emis, "UTF-8");
 			
 			if(emList!=null && !emList.isEmpty())
@@ -227,26 +225,20 @@ public class XmdUploader {
 			}*/ 														//Tomasz commented block
 
 			URI uploadURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(),altuserXmdUri, null,null);
-			//HttpPost uploadFile = new HttpPost(uploadURI); //Tomasz commented
-			HttpPut uploadFile = new HttpPut(uploadURI);     //Tomasz added
 
-			
-			//MultipartEntityBuilder builder = MultipartEntityBuilder.create(); Tomasz commented block
-			/*builder.addBinaryBody("user.xmd.json", userXmd,
-					ContentType.APPLICATION_OCTET_STREAM, "user.xmd.json");*/
-			//HttpEntity multipart = builder.build();
-
-			//uploadFile.setEntity(multipart);      //Tomasz commented
-			uploadFile.addHeader("Authorization","OAuth "+sessionID);
-			uploadFile.addHeader("content-type", "application/json");
 			
 			String userXmdString = FileUtils.readFileToString(userXmd, "utf-8"); //Tomasz added
-			StringEntity params = new StringEntity(userXmdString,"UTF-8");
-			uploadFile.setEntity(params);
+			//StringEntity params = new StringEntity(userXmdString,"UTF-8");
 			
-			CloseableHttpResponse response = httpClient.execute(uploadFile);
-			HttpEntity responseEntity = response.getEntity();
-			InputStream is = responseEntity.getContent();
+			httpHeaders.put("Authorization", "OAuth "+sessionID);
+			
+			RequestResponse<InputStream> xmdResponse = apiCaller.Call(uploadURI.toURL(),httpHeaders,userXmdString , "put");
+			
+			//uploadFile.setEntity(params);
+			
+			//CloseableHttpResponse response = httpClient.execute(uploadFile);
+			//HttpEntity responseEntity = response.getEntity();
+			InputStream is = xmdResponse.response;
 			String responseString = IOUtils.toString(is, "UTF-8");
 			if(responseString.contains("errorCode")){
 				System.out.println("Failed to perform the action.\n Error: "+responseString);
@@ -261,7 +253,7 @@ public class XmdUploader {
 					Map<String, List<Map<String, String>>> res =  (Map<String, List<Map<String, String>>>)mapper.readValue(responseString, Map.class);
 					//List<Map<String, String>> result = res.get("result");			//Tomasz commented
 					//if(result != null && !result.isEmpty()) //Tomasz commented
-					if(response.getStatusLine().getStatusCode() == 200 || response.getStatusLine().getStatusCode() == 204)
+					if(xmdResponse.status == 200 || xmdResponse.status == 204)
 					{
 						//Map<String, String> resp = result.get(0);
 						//if(resp!=null && !resp.isEmpty())

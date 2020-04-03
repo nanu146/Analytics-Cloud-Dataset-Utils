@@ -121,19 +121,8 @@ public class SfdcConnector implements IConnector {
 		}
 
 
-		@Override
-		public void connect() throws ConnectionException
-		{
-			logger.debug("SFDCConnectorImpl.connect()");
-			try {
-				partnerConnection = DatasetUtils.login(0, username, password, token, connectionUrl, connectionUrl, false);
-			} catch (MalformedURLException e) {
-				throw new ConnectionException(e.getMessage());
-			} catch (com.sforce.ws.ConnectionException e) {
-				throw new ConnectionException(e.getMessage());
-			}
-		}
 		
+
 		@Override
 		public void disconnect() throws ConnectionException {
 			logger.debug("SFDCConnectorImpl.disconnect()");
@@ -172,6 +161,12 @@ public class SfdcConnector implements IConnector {
 		@Override
 		public String getConnectorType() {
 			return "Salesforce";
+		}
+
+		@Override
+		public void connect() throws ConnectionException {
+			// TODO Auto-generated method stub
+			
 		}	
 
 

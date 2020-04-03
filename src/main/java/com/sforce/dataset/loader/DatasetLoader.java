@@ -79,7 +79,6 @@ import com.sforce.dataset.loader.file.schema.ext.FieldType;
 import com.sforce.dataset.loader.file.sort.CsvExternalSort;
 import com.sforce.dataset.util.CSVReader;
 import com.sforce.dataset.util.CharsetChecker;
-import com.sforce.dataset.util.DatasetUtils;
 import com.sforce.dataset.util.FileUtilsExt;
 import com.sforce.dataset.util.SfdcUtils;
 import com.sforce.soap.partner.GetUserInfoResult;
@@ -2185,7 +2184,7 @@ public class DatasetLoader {
 
 		if(json != null)
 		{
-			schema = ExternalFileSchema.load(IOUtils.toInputStream(json), DatasetUtils.utf8Charset, logger);
+			schema = ExternalFileSchema.load(IOUtils.toInputStream(json), Charset.forName("UTF-8"), logger);
 		}
 		return schema; 
 	}

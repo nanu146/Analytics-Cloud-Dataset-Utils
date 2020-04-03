@@ -51,21 +51,27 @@ import com.sforce.soap.partner.PartnerConnection;
 import com.sforce.soap.partner.sobject.SObject;
 import com.sforce.ws.ConnectionException;
 import com.sforce.ws.ConnectorConfig;
+import com.sforce.dataset.PartnerConnectManager;
+import com.sforce.dataset.ProxyParams;
 
 public class LoginServlet extends HttpServlet {
 	
 	private static final long serialVersionUID = 1L;
 
-	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
-	{
+	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException{
 		try
 		{
 			String loginType = request.getParameter("loginType");
 			String userName = request.getParameter("UserName");
 			String password = request.getParameter("Password");
 			String authEndpoint = request.getParameter("AuthEndpoint");
+			String proxyUserName = request.getParameter("ProxyUserName");
+			String proxyPassword = request.getParameter("ProxyPassword");
+			String proxyPort = request.getParameter("ProxyPort");
+			String proxyIP = request.getParameter("ProxyIP");
 			String access_token = request.getParameter("access_token");
 			String instance_url = request.getParameter("instance_url");
+			ProxyParams proxySettings = new ProxyParams();
 //			String refresh_token = request.getParameter("refresh_token");
 //			String scope = request.getParameter("scope");
 
@@ -92,6 +98,21 @@ public class LoginServlet extends HttpServlet {
 					if (item.getFieldName().equals("instance_url")) {
 						instance_url =  item.getString();
 					}
+
+					if (item.getFieldName().equals("ProxyUserName")) {
+						proxyUserName =  item.getString();
+					}
+
+					if (item.getFieldName().equals("ProxyPassword")) {
+						proxyPassword =  item.getString();
+					}
+
+					if (item.getFieldName().equals("ProxyPort")) {
+						proxyPort =  item.getString();
+					}
+					if (item.getFieldName().equals("ProxyIP")) {
+						proxyIP =  item.getString();
+					}
 //					if (item.getFieldName().equals("refresh_token")) {
 //						refresh_token =  item.getString();
 //					}
@@ -101,6 +122,26 @@ public class LoginServlet extends HttpServlet {
 				}
 			}
 			}
+			
+			// setting proxy settings
+			if(!proxyUserName.isBlank()) {
+				proxySettings.proxyUserName = proxyUserName;
+			}
+			if(!proxyPassword.isBlank()) {
+				proxySettings.proxyPassword = proxyPassword;
+			}
+			if(!proxyIP.isBlank()) {
+				proxySettings.proxyIP = proxyIP;
+			}
+			if(!proxyPort.isBlank()) {
+				// try parsing proxyPort, exit if the input is not a number
+					proxySettings.proxyPort = Integer.parseInt(proxyPort);  
+			    
+			}
+			
+			
+			// initiating proxy settings
+			initProxySettings(proxySettings);
 			
 			String sessionId = null;
 			
@@ -155,7 +196,10 @@ public class LoginServlet extends HttpServlet {
 				authEndpoint = instance_url;
 			}
 			
-			PartnerConnection conn = DatasetUtils.login(0, userName, password, null, authEndpoint, sessionId, false);
+			
+			PartnerConnectManager.initialize(userName, password, null, authEndpoint, sessionId, proxySettings);
+			PartnerConnectManager manager = PartnerConnectManager.getInstance();
+			PartnerConnection conn = manager.login(0, false);
 			ConnectorConfig config = conn.getConfig();
 
 			GetServerTimestampResult serverTimestampResult = conn.getServerTimestamp();							
@@ -235,4 +279,10 @@ public class LoginServlet extends HttpServlet {
 			mapper.writeValue(response.getOutputStream(), status);
 		}
 	}	
+	
+	public static ProxyParams initProxySettings(ProxyParams settings) {
+		ProxyParams proxySettings = ProxyParams.initialize(settings.proxyIP, settings.proxyPort, settings.proxyUserName, settings.proxyPassword);
+		return proxySettings;
+	}
 }
+

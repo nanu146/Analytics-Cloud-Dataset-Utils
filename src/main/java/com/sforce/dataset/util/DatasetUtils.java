@@ -25,6 +25,7 @@
  */
 package com.sforce.dataset.util;
 import java.io.BufferedReader;
+import java.net.Proxy;
 import java.io.ByteArrayOutputStream;
 import java.io.Console;
 import java.io.File;
@@ -34,10 +35,12 @@ import java.io.InputStreamReader;
 import java.io.ObjectOutputStream;
 import java.io.Reader;
 import java.io.UnsupportedEncodingException;
+import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
@@ -52,6 +55,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -62,13 +66,9 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.filefilter.IOFileFilter;
 import org.apache.commons.io.filefilter.TrueFileFilter;
-import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Level;
@@ -78,6 +78,8 @@ import org.apache.log4j.Logger;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sforce.dataset.DatasetUtilConstants;
+import com.sforce.dataset.RequestResponse;
+import com.sforce.dataset.Requests;
 import com.sforce.dataset.flow.monitor.Session;
 import com.sforce.soap.partner.CallOptions_element;
 import com.sforce.soap.partner.Connector;
@@ -158,23 +160,33 @@ public class DatasetUtils {
 
 		CloseableHttpClient httpClient = HttpUtils.getHttpClient();
 		RequestConfig requestConfig = HttpUtils.getRequestConfig();
+		
+		HashMap<String, String> httpHeaders = new HashMap<String, String>();
+		Requests apiCaller = new Requests();
+		
+		httpHeaders.put("Authorization", "OAuth "+sessionID);
 
 		URI u = new URI(serviceEndPoint);
 		
 		String deleteURI = 	"/insights/internal_api/v1.0/esObject/edgemart/"+datasetId+"/json";
 
 		URI listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), deleteURI, null,null);			
-		HttpDelete listEMPost = new HttpDelete(listEMURI);
+		//HttpDelete listEMPost = new HttpDelete(listEMURI);
+		RequestResponse<InputStream> reqResponse = null;
+		try {
+			reqResponse = apiCaller.Call(listEMURI.toURL(), httpHeaders, "", "DELETE");
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
-		listEMPost.setConfig(requestConfig);
-		listEMPost.addHeader("Authorization","OAuth "+sessionID);			
-		CloseableHttpResponse emresponse = httpClient.execute(listEMPost);
-		HttpEntity emresponseEntity = emresponse.getEntity();
-		InputStream emis = emresponseEntity.getContent();			
+		InputStream emis =reqResponse.response;			
 		String deleteResponse = IOUtils.toString(emis, "UTF-8");
 		System.out.println("Delete Response:"+deleteResponse);
 		emis.close();
-		httpClient.close();
 
 		
 		if(deleteResponse!=null && !deleteResponse.isEmpty())
@@ -254,6 +266,11 @@ public class DatasetUtils {
 
 		CloseableHttpClient httpClient = HttpUtils.getHttpClient();
 		RequestConfig requestConfig = HttpUtils.getRequestConfig();
+		
+		HashMap<String, String> httpHeaders = new HashMap<String, String>();
+		Requests apiCaller = new Requests();
+		
+		httpHeaders.put("Authorization", "OAuth "+sessionID);
 
 		
 		URI u = new URI(serviceEndPoint);
@@ -263,13 +280,19 @@ public class DatasetUtils {
 		else
 			listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), "/insights/internal_api/v1.0/esObject/edgemart", "current="+isCurrent+"&sortOrder=Mru"+"&search="+search,null);			
 			
-		HttpGet listEMPost = new HttpGet(listEMURI);
+		RequestResponse<InputStream> reqResponse = null;
+		try {
+			reqResponse = apiCaller.Call(listEMURI.toURL(), httpHeaders, "", "GET");
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
-		listEMPost.setConfig(requestConfig);
-		listEMPost.addHeader("Authorization","OAuth "+sessionID);			
-		CloseableHttpResponse emresponse = httpClient.execute(listEMPost);
-		HttpEntity emresponseEntity = emresponse.getEntity();
-		InputStream emis = emresponseEntity.getContent();			
+		
+		InputStream emis = reqResponse.response;			
 		String emList = IOUtils.toString(emis, "UTF-8");
 //		System.out.println("Response Size:"+emList);
 		emis.close();
@@ -373,23 +396,33 @@ public class DatasetUtils {
 
 		CloseableHttpClient httpClient = HttpUtils.getHttpClient();
 		RequestConfig requestConfig = HttpUtils.getRequestConfig();
+		
+		HashMap<String, String> httpHeaders = new HashMap<String, String>();
+		Requests apiCaller = new Requests();
+		
+		httpHeaders.put("Authorization", "OAuth "+sessionID);
 
 		URI u = new URI(serviceEndPoint);
 
-		URI listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), "/insights/internal_api/v1.0/esObject/folder", null,null);			
-		HttpGet listEMPost = new HttpGet(listEMURI);
-
-		listEMPost.setConfig(requestConfig);
-		listEMPost.addHeader("Authorization","OAuth "+sessionID);			
-//		System.out.println("Fetching Folder list from server, this may take a minute...");
-		CloseableHttpResponse emresponse = httpClient.execute(listEMPost);
-		   String reasonPhrase = emresponse.getStatusLine().getReasonPhrase();
-	       int statusCode = emresponse.getStatusLine().getStatusCode();
+		URI listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), "/insights/internal_api/v1.0/esObject/folder", null,null);
+		
+		RequestResponse<InputStream> reqResponse = null;
+		try {
+			reqResponse = apiCaller.Call(listEMURI.toURL(), httpHeaders, "", "GET");
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+	       int statusCode = reqResponse.status;
 	       if (statusCode != HttpStatus.SC_OK) {
-		       throw new IOException(String.format("listFolders failed: %d %s", statusCode,reasonPhrase));
+		       throw new IOException(String.format("listFolders failed: %d ", statusCode));
 	       }
-		HttpEntity emresponseEntity = emresponse.getEntity();
-		InputStream emis = emresponseEntity.getContent();			
+		
+		InputStream emis = reqResponse.response;			
 		String emList = IOUtils.toString(emis, "UTF-8");
 		emis.close();
 		httpClient.close();
@@ -489,220 +522,8 @@ public class DatasetUtils {
 		return Session.listSessions(connection.getUserInfo().getOrganizationId());
 	}
 	
-	/**
-	 * Login.
-	 *
-	 * @param retryCount the retry count
-	 * @param username the username
-	 * @param password the password
-	 * @param token the token
-	 * @param endpoint the endpoint
-	 * @param sessionId the session id
-	 * @param debug the debug
-	 * @return the partner connection
-	 * @throws ConnectionException the connection exception
-	 * @throws MalformedURLException the malformed url exception
-	 */
-	public static PartnerConnection login(int retryCount,String username,String password, String token, String endpoint, String sessionId, boolean debug) throws ConnectionException, MalformedURLException  {
 
-		if(sessionId==null)
-		{
-			if (username == null || username.isEmpty()) {
-				throw new IllegalArgumentException("username is required");
-			}
-	
-			if (password == null || password.isEmpty()) {
-				throw new IllegalArgumentException("password is required");
-			}
-
-			if (token != null)
-				password = password + token;
-		}
-
-		if (endpoint == null || endpoint.isEmpty()) {
-			endpoint = DatasetUtilConstants.defaultEndpoint;
-		}
 		
-		if(sessionId != null && !sessionId.isEmpty())
-		{
-			while(endpoint.toLowerCase().contains("login.salesforce.com") || endpoint.toLowerCase().contains("test.salesforce.com") || endpoint.toLowerCase().contains("test") || endpoint.toLowerCase().contains("prod") || endpoint.toLowerCase().contains("sandbox"))
-			{
-				throw new IllegalArgumentException("ERROR: endpoint must be the actual serviceURL and not the login url");
-			}
-		}
-
-		URL uri = new URL(endpoint);
-		String protocol = uri.getProtocol();
-		String host = uri.getHost();
-		if(protocol == null || !protocol.equalsIgnoreCase("https"))
-		{
-			if(host == null || !(host.toLowerCase().endsWith("internal.salesforce.com") || host.toLowerCase().endsWith("localhost")))
-			{
-				System.out.println("\nERROR: Invalid endpoint. UNSUPPORTED_CLIENT: HTTPS Required in endpoint");
-				System.exit(-1);
-			}
-		}
-		
-		if(uri.getPath() == null || uri.getPath().isEmpty() || uri.getPath().equals("/"))
-		{
-			uri = new URL(uri.getProtocol(), uri.getHost(), uri.getPort(), DatasetUtilConstants.defaultSoapEndPointPath); 
-		}
-		endpoint = uri.toString();
-		
-
-		try {
-			ConnectorConfig config = getConnectorConfig();
-			if(sessionId!=null)
-			{
-			    config.setServiceEndpoint(endpoint);
-			    config.setSessionId(sessionId);
-			}else
-			{
-				config.setUsername(username);
-				config.setPassword(password);
-				config.setAuthEndpoint(endpoint);
-				config.setSessionRenewer(new SessionRenewerImpl(username, password, null, endpoint));
-			}
-			
-//			PartnerConnection connection = new PartnerConnection(config);
-			PartnerConnection connection = Connector.newConnection(config);
-
-	
-			//Set the clientId
-			CallOptions_element co = new CallOptions_element();
-		    co.setClient(DatasetUtilConstants.clientId);
-		    connection.__setCallOptions(co);
-		    
-//			if(sessionId==null)
-//			{
-//				setSessionRenewer(connection);
-//			}
-//
-//		    loginInternal(connection);
-		        
-			@SuppressWarnings("unused")
-			GetUserInfoResult userInfo = connection.getUserInfo();
-			if(!hasLoggedIn)
-			{
-				System.out.println("\nLogging in ...");
-				System.out.println("Service Endpoint: " + config.getServiceEndpoint());
-				if(debug)
-					System.out.println("SessionId: " + config.getSessionId());
-//				System.out.println("User id: " + userInfo.getUserName());
-//				System.out.println("User Email: " + userInfo.getUserEmail());
-				System.out.println();
-				hasLoggedIn = true;
-			}
-			return connection;
-		}catch (ConnectionException e) {	
-			System.out.println(e.getClass().getCanonicalName());
-			e.printStackTrace();
-			boolean retryError = true;	
-			if(e instanceof LoginFault || sessionId != null)
-				retryError = false;
-			if(retryCount<3 && retryError)
-			{
-				retryCount++;
-				try {
-					Thread.sleep(1000*retryCount);
-				} catch (InterruptedException e1) {
-					e1.printStackTrace();
-				}
-				return login(retryCount,username, password, null, endpoint, sessionId, debug);
-			}
-			throw new ConnectionException(e.toString());
-		}
-	}
-	
-//	public static void loginInternal(final PartnerConnection conn) throws ConnectionException {
-//	    final ConnectorConfig cc = conn.getConfig();
-//	    	if(cc.getUsername()!=null && !cc.getUsername().isEmpty())
-//	    	{	
-//		    	LoginResult loginResult =  conn.login(cc.getUsername(), cc.getPassword());
-//		        // if password has expired, throw an exception
-//		        if (loginResult.getPasswordExpired()) { 
-//		        	throw new ConnectionException("Password Expired");
-//		        }
-//		        // update session id and service endpoint based on response
-//		        conn.setSessionHeader(loginResult.getSessionId());
-//	    	}
-//	}
-
-//    private static void setSessionRenewer(final PartnerConnection conn) {
-//        conn.getConfig().setSessionRenewer(new SessionRenewer() {
-//            @Override
-//            public SessionRenewalHeader renewSession(ConnectorConfig connectorConfig) throws ConnectionException {
-//                loginInternal(conn);
-//                return null;
-//            }
-//        });
-//    }
-
-
-    /**
- * Gets the connector config.
- *
- * @return the connector config
- */
-protected static ConnectorConfig getConnectorConfig() {
-        ConnectorConfig cc = new ConnectorConfig();
-        cc.setTransport(HttpClientTransport.class);
-        
-        // proxy properties
-        try {
-        	com.sforce.dataset.Config conf = DatasetUtilConstants.getSystemConfig();
-            if (conf.proxyHost != null && conf.proxyHost.length() > 0 && conf.proxyPort > 0) {
-                cc.setProxy(conf.proxyHost, conf.proxyPort);
-
-                if (conf.proxyUsername != null && conf.proxyUsername.length() > 0) {
-                    cc.setProxyUsername(conf.proxyUsername);
-
-                    if (conf.proxyPassword != null && conf.proxyPassword.length() > 0) {
-                        cc.setProxyPassword(conf.proxyPassword);
-                    } else {
-                        cc.setProxyPassword("");
-                    }
-                }
-
-                if (conf.proxyNtlmDomain != null && conf.proxyNtlmDomain.length() > 0) {
-                    cc.setNtlmDomain(conf.proxyNtlmDomain);
-                }
-            }
-
-            // Time out after 5 seconds for connection
-            cc.setConnectionTimeout(conf.connectionTimeoutSecs * 1000);
-
-            // Time out after 1 minute 10 sec for login response
-            cc.setReadTimeout((conf.timeoutSecs * 1000));
-
-            // use compression or turn it off
-            cc.setCompression(!conf.noCompression);
-
-            if (conf.debugMessages) {
-                cc.setTraceMessage(true);
-                cc.setPrettyPrintXml(true);
-                    try {
-                        cc.setTraceFile(DatasetUtilConstants.getDebugFile().getAbsolutePath());
-                    } catch (Throwable e) {
-                    	e.printStackTrace();
-                    }
-            }
-        
-        } catch (Throwable e) {
-            e.printStackTrace();
-        }
-
-//        String server = getSession().getServer();
-//        if (server != null) {
-//            cc.setAuthEndpoint(server + DEFAULT_AUTH_ENDPOINT_URL.getPath());
-//            cc.setServiceEndpoint(server + DEFAULT_AUTH_ENDPOINT_URL.getPath());
-//            cc.setRestEndpoint(server + REST_ENDPOINT);
-//        }
-
-        return cc;
-    }
-
-	
 	/**
 	 * Gets the alias.
 	 *

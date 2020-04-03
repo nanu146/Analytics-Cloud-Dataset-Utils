@@ -31,9 +31,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -44,13 +46,13 @@ import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sforce.dataset.DatasetUtilConstants;
+import com.sforce.dataset.RequestResponse;
+import com.sforce.dataset.Requests;
 import com.sforce.dataset.util.HttpUtils;
 import com.sforce.soap.partner.PartnerConnection;
 import com.sforce.ws.ConnectionException;
@@ -103,9 +105,13 @@ public class DataFlowMonitorUtil {
 		ConnectorConfig config = partnerConnection.getConfig();			
 		String sessionID = config.getSessionId();
 		String serviceEndPoint = config.getServiceEndpoint();
+		HashMap<String, String> httpHeaders = new HashMap<String, String>();
+		Requests apiCaller = new Requests();
+		
+		httpHeaders.put("Authorization", "OAuth "+sessionID);
 
-		CloseableHttpClient httpClient = HttpUtils.getHttpClient();
-		RequestConfig requestConfig = HttpUtils.getRequestConfig();
+		//CloseableHttpClient httpClient = HttpUtils.getHttpClient();
+		//RequestConfig requestConfig = HttpUtils.getRequestConfig();
 
 		URI u = new URI(serviceEndPoint);
 
@@ -115,22 +121,31 @@ public class DataFlowMonitorUtil {
 			 url = String.format("/insights/internal_api/v1.0/esObject/workflow/%s/jobs",dataflowId);
 		}
 		URI listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), url, null,null);			
-		HttpGet listEMPost = new HttpGet(listEMURI);
+		RequestResponse<InputStream> reqResponse = null;
+		try {
+			reqResponse = apiCaller.Call(listEMURI.toURL(), httpHeaders, "", "GET");
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
-		listEMPost.setConfig(requestConfig);
-		listEMPost.addHeader("Authorization","OAuth "+sessionID);			
+		//listEMPost.setConfig(requestConfig);
+		//listEMPost.addHeader("Authorization","OAuth "+sessionID);			
 //		System.out.println("Fetching job list from server, this may take a minute...");
-		CloseableHttpResponse emresponse = httpClient.execute(listEMPost);
-		   String reasonPhrase = emresponse.getStatusLine().getReasonPhrase();
-	       int statusCode = emresponse.getStatusLine().getStatusCode();
+		//CloseableHttpResponse emresponse = httpClient.execute(listEMPost);
+		   
+	       int statusCode = reqResponse.status;
 	       if (statusCode != HttpStatus.SC_OK) {
-		       throw new IOException(String.format("getDataFlowJobs failed: %d %s", statusCode,reasonPhrase));
+		       throw new IOException(String.format("getDataFlowJobs failed: %d", statusCode));
 	       }
-		HttpEntity emresponseEntity = emresponse.getEntity();
-		InputStream emis = emresponseEntity.getContent();			
+		//HttpEntity emresponseEntity = reqResponse.getEntity();
+		InputStream emis = reqResponse.response;			
 		String emList = IOUtils.toString(emis, "UTF-8");
 		emis.close();
-		httpClient.close();
+		//httpClient.close();
 		
 		if(emList!=null && !emList.isEmpty())
 		{
@@ -238,29 +253,43 @@ public class DataFlowMonitorUtil {
 		ConnectorConfig config = partnerConnection.getConfig();			
 		String sessionID = config.getSessionId();
 		String serviceEndPoint = config.getServiceEndpoint();
+		HashMap<String, String> httpHeaders = new HashMap<String, String>();
+		Requests apiCaller = new Requests();
+		
+		httpHeaders.put("Authorization", "OAuth "+sessionID);
 
-		CloseableHttpClient httpClient = HttpUtils.getHttpClient();
-		RequestConfig requestConfig = HttpUtils.getRequestConfig();
+		//CloseableHttpClient httpClient = HttpUtils.getHttpClient();
+		//RequestConfig requestConfig = HttpUtils.getRequestConfig();
 		
 		URI u = new URI(serviceEndPoint);
 
-		URI listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), nodeUrl, null,null);			
-		HttpGet listEMPost = new HttpGet(listEMURI);
+		URI listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), nodeUrl, null,null);
+		
+		RequestResponse<InputStream> reqResponse = null;
+		try {
+			reqResponse = apiCaller.Call(listEMURI.toURL(), httpHeaders, "", "GET");
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
-		listEMPost.setConfig(requestConfig);
-		listEMPost.addHeader("Authorization","OAuth "+sessionID);			
+		//listEMPost.setConfig(requestConfig);
+		//listEMPost.addHeader("Authorization","OAuth "+sessionID);			
 //		System.out.println("Fetching node list from server, this may take a minute...");
-		CloseableHttpResponse emresponse = httpClient.execute(listEMPost);
-		   String reasonPhrase = emresponse.getStatusLine().getReasonPhrase();
-	       int statusCode = emresponse.getStatusLine().getStatusCode();
+		//CloseableHttpResponse emresponse = httpClient.execute(listEMPost);
+		   //String reasonPhrase = emresponse.getStatusLine().getReasonPhrase();
+	       int statusCode = reqResponse.status;
 	       if (statusCode != HttpStatus.SC_OK) {
-		       throw new IOException(String.format("getDataFlowJobs failed: %d %s", statusCode,reasonPhrase));
+		       throw new IOException(String.format("getDataFlowJobs failed: %d", statusCode));
 	       }
-		HttpEntity emresponseEntity = emresponse.getEntity();
-		InputStream emis = emresponseEntity.getContent();			
+		
+		InputStream emis = reqResponse.response;			
 		String emList = IOUtils.toString(emis, "UTF-8");
 		emis.close();
-		httpClient.close();
+		//httpClient.close();
 		
 		if(emList!=null && !emList.isEmpty())
 		{
@@ -362,6 +391,12 @@ public class DataFlowMonitorUtil {
 
 		String sessionID = config.getSessionId();
 		String serviceEndPoint = config.getServiceEndpoint();
+		
+		HashMap<String, String> httpHeaders = new HashMap<String, String>();
+		Requests apiCaller = new Requests();
+		
+		httpHeaders.put("Authorization", "OAuth "+sessionID);
+
 
 		CloseableHttpClient httpClient = HttpUtils.getHttpClient();
 		RequestConfig requestConfig = HttpUtils.getRequestConfig();
@@ -369,26 +404,37 @@ public class DataFlowMonitorUtil {
 		URI u = new URI(serviceEndPoint);
 		
 		URI listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), "/insights/internal_api/v1.0/jobTrackerHeartbeat/{0}/nodes/digest/nodeerrorlog".replace("{0}", jobTrackerid), null,null);			
-		HttpGet listEMPost = new HttpGet(listEMURI);
+		
+		
+		RequestResponse<InputStream> reqResponse = null;
+		try {
+			reqResponse = apiCaller.Call(listEMURI.toURL(), httpHeaders, "", "GET");
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
-		listEMPost.setConfig(requestConfig);
-		listEMPost.addHeader("Authorization","OAuth "+sessionID);			
+		//listEMPost.setConfig(requestConfig);
+		//listEMPost.addHeader("Authorization","OAuth "+sessionID);			
 //		System.out.println("Fetching error sessionLog for job {"+jobTrackerid+"} from server...");
-		CloseableHttpResponse emresponse = httpClient.execute(listEMPost);
-		   String reasonPhrase = emresponse.getStatusLine().getReasonPhrase();
-	       int statusCode = emresponse.getStatusLine().getStatusCode();
+		//CloseableHttpResponse emresponse = httpClient.execute(listEMPost);
+		   //String reasonPhrase = emresponse.getStatusLine().getReasonPhrase();
+	       int statusCode = reqResponse.status;
 	       if (statusCode != HttpStatus.SC_OK) {
-		       throw new IOException(String.format("getDataFlowJob node error sessionLog failed: %d %s", statusCode,reasonPhrase));
+		       throw new IOException(String.format("getDataFlowJob node error sessionLog failed: %d", statusCode));
 	       }
-		HttpEntity emresponseEntity = emresponse.getEntity();
-		InputStream emis = emresponseEntity.getContent();		
+		
+		InputStream emis = reqResponse.response;		
 		
 		File dataDir = DatasetUtilConstants.getDataDir(orgId);
 		File parent = new File(dataDir,datasetName);
 		FileUtils.forceMkdir(parent);
 
 		File outfile = new File(parent, datasetName+"_"+jobTrackerid+"_error.csv");
-		System.out.println("fetching file {"+outfile+"}. Content-length {"+emresponseEntity.getContentLength()+"}");
+		System.out.println("fetching file {"+outfile+"}. Content-length {"+emis.available()+"}");
 		BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(outfile),DatasetUtilConstants.DEFAULT_BUFFER_SIZE);
 		IOUtils.copy(emis, out);
 		out.close();

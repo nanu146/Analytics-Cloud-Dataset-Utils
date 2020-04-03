@@ -27,31 +27,31 @@ package com.sforce.dataset;
 
 import java.nio.charset.CodingErrorAction;
 
-public class DatasetUtilParams {
-	String dataset = null;
-	String datasetLabel = null;
-	String app = null;
-	String proxyIP = null;
-	String proxyPort = null;
-	String proxyUserName = null;
-	String proxyPassword = null;
-	String username = null;
-	String password = null;
-	String token = null;
-	String sessionId = null;
-	String endpoint = null;
-	String inputFile = null;
-	String schemaFile = null;
-	String jsonConfig = null;
-	String rootObject = null;
-	String fileEncoding = null;
-	String uploadFormat = null;
-	String Operation = null;
-	int rowLimit = 0;
-	String notificationLevel = null; 
-	String notificationEmail = null;
-	boolean useBulkAPI = false;
-	boolean debug = false;
-	boolean server = true;
-	CodingErrorAction codingErrorAction = CodingErrorAction.REPORT;
+public class ProxyParams {
+	
+	private static ProxyParams proxysettings;
+	public String proxyIP = null;
+	public int proxyPort = 0;
+	public String proxyUserName = null;
+	public String proxyPassword = null;
+	
+	public static ProxyParams  initialize(String proxyIP, int proxyPort, String proxyUserName, String proxyPassword) {
+		
+		if(proxysettings == null) {
+			proxysettings = new ProxyParams();	
+			proxysettings.proxyIP = proxyIP;
+			proxysettings.proxyPort = proxyPort;
+			proxysettings.proxyUserName = proxyUserName;
+			proxysettings.proxyPassword = proxyPassword;
+		}
+		
+		return proxysettings;
+		
+	}
+	
+	public static ProxyParams getInstance() {
+		return proxysettings;
+	}
+	
+	
 }

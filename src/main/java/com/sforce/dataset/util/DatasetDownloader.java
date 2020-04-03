@@ -27,20 +27,19 @@ package com.sforce.dataset.util;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.text.NumberFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
-import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -48,6 +47,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sforce.dataset.DatasetUtilConstants;
 import com.sforce.soap.partner.PartnerConnection;
 import com.sforce.ws.ConnectorConfig;
+import com.sforce.dataset.ProxyParams;
+import com.sforce.dataset.Requests;
+import com.sforce.dataset.PartnerConnectManager;
+import com.sforce.dataset.RequestResponse;
 
 /**
  * The Class DatasetDownloader.
@@ -76,21 +79,25 @@ public class DatasetDownloader {
 		String versionID = null;
 		String id = null;
 		
+		HashMap<String, String> httpHeaders = new HashMap<String, String>();
+		Requests apiCaller = new Requests();
+		
+		httpHeaders.put("Authorization", "OAuth "+sessionID);
+		
 		CloseableHttpClient httpClient = HttpUtils.getHttpClient();
 		RequestConfig requestConfig = HttpUtils.getRequestConfig();
+		
+		
 		
 		String mainXmd = null;
 
 		String serviceEndPoint = config.getServiceEndpoint();
 		URI u = new URI(serviceEndPoint);
 		URI listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), "/insights/internal_api/v1.0/esObject/edgemart", "current=true&alias="+EM_NAME,null);			
-		HttpGet listEMPost = new HttpGet(listEMURI);
-
-		listEMPost.setConfig(requestConfig);
-		listEMPost.addHeader("Authorization","OAuth "+sessionID);			
-		CloseableHttpResponse emresponse = httpClient.execute(listEMPost);
-		HttpEntity emresponseEntity = emresponse.getEntity();
-		InputStream emis = emresponseEntity.getContent();			
+		RequestResponse<InputStream> reqResponse = apiCaller.Call(listEMURI.toURL(), httpHeaders, "","GET");
+		
+		
+		InputStream emis = reqResponse.response;			
 		String emList = IOUtils.toString(emis, "UTF-8");
 		emis.close();
 		httpClient.close();
@@ -158,6 +165,11 @@ public class DatasetDownloader {
 		ConnectorConfig config = partnerConnection.getConfig();			
 		String sessionID = config.getSessionId();		
 		
+		HashMap<String, String> httpHeaders = new HashMap<String, String>();
+		Requests apiCaller = new Requests();
+		
+		httpHeaders.put("Authorization", "OAuth "+sessionID);
+		
 		CloseableHttpClient httpClient = HttpUtils.getHttpClient();
 		RequestConfig requestConfig = HttpUtils.getRequestConfig();
 		
@@ -167,21 +179,18 @@ public class DatasetDownloader {
 		URI u = new URI(serviceEndPoint);
 
 		URI listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), String.format("/insights/internal_api/v1.0/esObject/edgemart/%s/version/%s/file/main.xmd.json",datasetId,datasetVersion),null,null);			
-		HttpGet listEMPost = new HttpGet(listEMURI);
+		RequestResponse<InputStream> reqResponse = apiCaller.Call(listEMURI.toURL(), httpHeaders, "","GET");
 
-		listEMPost.setConfig(requestConfig);
-		listEMPost.addHeader("Authorization","OAuth "+sessionID);			
-		CloseableHttpResponse emresponse = httpClient.execute(listEMPost);
 		
-		   String reasonPhrase = emresponse.getStatusLine().getReasonPhrase();
-	       int statusCode = emresponse.getStatusLine().getStatusCode();
+		   String reasonPhrase = "";
+	       int statusCode = reqResponse.status;
 	       if (statusCode != HttpStatus.SC_OK) {
 	           System.out.println("Method failed: " + reasonPhrase);
-		       throw new IllegalArgumentException(String.format("%s download failed: %d %s", "main.xmd.json",statusCode,reasonPhrase));
+		       throw new IllegalArgumentException(String.format("%s download failed: %d", "main.xmd.json",statusCode));
 	       }
 
-			HttpEntity emresponseEntity1 = emresponse.getEntity();
-			InputStream emis1 = emresponseEntity1.getContent();
+			
+			InputStream emis1 = reqResponse.response;
 			String xmd = IOUtils.toString(emis1, "UTF-8");
 			emis1.close();
 			httpClient.close();
@@ -208,7 +217,7 @@ public class DatasetDownloader {
 	 * @throws Exception the exception
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	public static boolean downloadEM(String EM_NAME, PartnerConnection partnerConnection) throws Exception 
+	public static boolean downloadEM(String EM_NAME, PartnerConnection partnerConnection, ProxyParams proxySettings) throws Exception 
 	{
 //			partnerConnection.getServerTimestamp();
 			ConnectorConfig config = partnerConnection.getConfig();			
@@ -217,24 +226,32 @@ public class DatasetDownloader {
 			String _alias = null;
 			Date createdDateTime = null;
 			String versionID = null;
+			HashMap<String, String> httpHeaders = new HashMap<String, String>();
+			Requests apiCaller = new Requests();
+			
+			httpHeaders.put("Authorization", "OAuth "+sessionID);
+			
+			
+			
 			
 			String serviceEndPoint = config.getServiceEndpoint();
-			CloseableHttpClient httpClient = HttpUtils.getHttpClient();
-			RequestConfig requestConfig = HttpUtils.getRequestConfig();
 			   
 			URI u = new URI(serviceEndPoint);
 
-			URI listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), "/insights/internal_api/v1.0/esObject/edgemart", "current=true&alias="+EM_NAME,null);			
-			HttpGet listEMPost = new HttpGet(listEMURI);
+			URI listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), "/insights/internal_api/v1.0/esObject/edgemart", "current=true&alias="+EM_NAME,null);
+			
+			//HttpURLConnection conn = conConfig.createConnection(listEMURI.toURL(), httpHeaders);
+			RequestResponse reqResponse = apiCaller.Get(listEMURI.toURL(), httpHeaders, "");
+			String emList = reqResponse.response.toString();
 
-			listEMPost.setConfig(requestConfig);
-			listEMPost.addHeader("Authorization","OAuth "+sessionID);			
-			CloseableHttpResponse emresponse = httpClient.execute(listEMPost);
-			HttpEntity emresponseEntity = emresponse.getEntity();
-			InputStream emis = emresponseEntity.getContent();			
-			String emList = IOUtils.toString(emis, "UTF-8");
-			emis.close();
-			httpClient.close();
+			//listEMPost.setConfig(requestConfig);
+			//listEMPost.addHeader("Authorization","OAuth "+sessionID);			
+			//CloseableHttpResponse emresponse = httpClient.execute(listEMPost);
+			//HttpEntity emresponseEntity = emresponse.getEntity();
+			//InputStream emis = emresponseEntity.getContent();			
+			//String emList = IOUtils.toString(emis, "UTF-8");
+			//emis.close();
+			//httpClient.close();
 			
 			if(emList!=null && !emList.isEmpty())
 			{
@@ -287,31 +304,36 @@ public class DatasetDownloader {
 											continue;
 									}
 									
-									CloseableHttpClient httpClient1 = HttpUtils.getHttpClient();
+									//CloseableHttpClient httpClient1 = HttpUtils.getHttpClient();
 									String url = (String) _files.get(filename);
-									URI listEMURI1 = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), url, null,null);			
-									HttpGet listEMPost1 = new HttpGet(listEMURI1);
+									URI listEMURI1 = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), url, null,null);
+									
+									//conn = conConfig.createConnection(listEMURI.toURL(), httpHeaders);
+									long startTime = System.currentTimeMillis();
+									RequestResponse<InputStream> xmdResponse = apiCaller.Call(listEMURI1.toURL(),httpHeaders, "  ", "GET");
+									 
+									InputStream emis1 = xmdResponse.response;
 
 									System.out.println("Downloading file {"+filename+"} + URI: " + listEMURI1);
-									listEMPost1.setConfig(requestConfig);
-									listEMPost1.addHeader("Authorization","OAuth "+sessionID);			
+									//listEMPost1.setConfig(requestConfig);
+									//listEMPost1.addHeader("Authorization","OAuth "+sessionID);			
 
-									long startTime = System.currentTimeMillis();
+									//long startTime = System.currentTimeMillis();
 									long endTime = 0L;
-									CloseableHttpResponse emresponse1 = httpClient1.execute(listEMPost1);
+									//CloseableHttpResponse emresponse1 = httpClient1.execute(listEMPost1);
 
-								   String reasonPhrase = emresponse1.getStatusLine().getReasonPhrase();
-							       int statusCode = emresponse1.getStatusLine().getStatusCode();
-							       if (statusCode != HttpStatus.SC_OK) {
-							           System.out.println("Method failed: " + reasonPhrase);
-								       System.out.println(String.format("%s download failed: %d %s", filename,statusCode,reasonPhrase));
-							           continue;
-							       }
+								   //String reasonPhrase = emresponse1.getStatusLine().getReasonPhrase();
+							       //int statusCode = emresponse1.getStatusLine().getStatusCode();
+							       //if (statusCode != HttpStatus.SC_OK) {
+							       //    System.out.println("Method failed: " + reasonPhrase);
+								   //    System.out.println(String.format("%s download failed: %d %s", filename,statusCode,reasonPhrase));
+							       //    continue;
+							       //}
 //							       System.out.println(String.format("statusCode: %d %s", statusCode,reasonPhrase));
 //							       System.out.println(String.format("reasonPhrase: %s", reasonPhrase));
 
-									HttpEntity emresponseEntity1 = emresponse1.getEntity();
-									InputStream emis1 = emresponseEntity1.getContent();
+									//HttpEntity emresponseEntity1 = emresponse1.getEntity();
+									//InputStream emis1 = emresponseEntity1.getContent();
 									File outfile = new File(edgemartDir,(String) filename);
 									if(!filename.toString().endsWith("json"))
 									{
@@ -330,8 +352,8 @@ public class DatasetDownloader {
 										{
 											out.close();
 											emis1.close();
-											emresponse1.close();
-											httpClient1.close();
+											//emresponse1.close();
+											//httpClient1.close();
 										}
 									}else
 									{
@@ -348,7 +370,7 @@ public class DatasetDownloader {
 										}finally
 										{
 											emis1.close();
-											httpClient1.close();
+											//httpClient1.close();
 										}
 									}
 										System.out.println("file {"+outfile+"} downloaded. Size{"+nf.format(outfile.length())+"}, Time{"+nf.format(endTime-startTime)+"}\n");

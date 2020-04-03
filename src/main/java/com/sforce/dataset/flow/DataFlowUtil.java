@@ -29,11 +29,13 @@ package com.sforce.dataset.flow;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -44,23 +46,17 @@ import org.apache.commons.io.IOCase;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.filefilter.FileFilterUtils;
 import org.apache.commons.io.filefilter.IOFileFilter;
-import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPatch;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
 
 import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sforce.dataset.DatasetUtilConstants;
+import com.sforce.dataset.RequestResponse;
+import com.sforce.dataset.Requests;
 import com.sforce.dataset.util.DatasetUtils;
 import com.sforce.dataset.util.FileUtilsExt;
 import com.sforce.dataset.util.HttpUtils;
@@ -104,38 +100,44 @@ public class DataFlowUtil {
 		ConnectorConfig config = partnerConnection.getConfig();			
 		String sessionID = config.getSessionId();
 		String serviceEndPoint = config.getServiceEndpoint();
+		HashMap<String, String> httpHeaders = new HashMap<String, String>();
+		Requests apiCaller = new Requests();
+		
+		httpHeaders.put("Authorization", "OAuth "+sessionID);
 
-		CloseableHttpClient httpClient = HttpUtils.getHttpClient();
-		RequestConfig requestConfig = HttpUtils.getRequestConfig();
 
 		URI u = new URI(serviceEndPoint);
 
-		URI patchURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), String.format(dataflowURL, dataflowId), null,null);			
+		URI patchURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), String.format(dataflowURL, dataflowId), null,null);
 		
-        HttpPatch httpPatch = new HttpPatch(patchURI);
-        
 		Map map = new LinkedHashMap();
 		map.put("workflowDefinition", dataflowObject);
 		ObjectMapper mapper = new ObjectMapper();			
-        StringEntity entity = new StringEntity(mapper.writerWithDefaultPrettyPrinter().writeValueAsString(map), "UTF-8");        
-        entity.setContentType("application/json");
-        httpPatch.setConfig(requestConfig);
-        httpPatch.setEntity(entity);
-        httpPatch.addHeader("Authorization","OAuth "+sessionID);			
-		CloseableHttpResponse emresponse = httpClient.execute(httpPatch);
-	   String reasonPhrase = emresponse.getStatusLine().getReasonPhrase();
-       int statusCode = emresponse.getStatusLine().getStatusCode();
-//       if (statusCode != HttpStatus.SC_OK) {
-//	       throw new IOException(String.format("Dataflow {%s} upload failed: %d %s", dataflowAlias,statusCode,reasonPhrase));
-//       }
-		HttpEntity emresponseEntity = emresponse.getEntity();
-		InputStream emis = emresponseEntity.getContent();			
+        StringEntity entity = new StringEntity(mapper.writerWithDefaultPrettyPrinter().writeValueAsString(map), "UTF-8");   
+		
+		RequestResponse<InputStream> reqResponse = null;
+		try {
+			reqResponse = apiCaller.Call(patchURI.toURL(), httpHeaders, entity.toString(), "Patch");
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		     
+			
+
+       int statusCode = reqResponse.status;
+       
+		InputStream emis = reqResponse.response;			
 		String emList = IOUtils.toString(emis, "UTF-8");
 //		System.out.println(emList);
 		emis.close();
-		httpClient.close();
 
-		if (statusCode != HttpStatus.SC_CREATED) 
+		String reasonPhrase = "";
+		if (statusCode != HttpStatus.SC_CREATED)
 	    {
 			String errorCode = statusCode+"";
 	    	try
@@ -206,40 +208,38 @@ public class DataFlowUtil {
 		ConnectorConfig config = partnerConnection.getConfig();			
 		String sessionID = config.getSessionId();
 		String serviceEndPoint = config.getServiceEndpoint();
+		
+		HashMap<String, String> httpHeaders = new HashMap<String, String>();
+		Requests apiCaller = new Requests();
+		
+		httpHeaders.put("Authorization", "OAuth "+sessionID);
 
-		CloseableHttpClient httpClient = HttpUtils.getHttpClient();
-		RequestConfig requestConfig = HttpUtils.getRequestConfig();
 		   
 		URI u = new URI(serviceEndPoint);
-		
-//		File dataDir = DatasetUtilConstants.getDataDir(orgId);
-//		
-//		File dataFlowFile = new File(dataDir,dataflowAlias+".json");
 
-		URI listEMURI1 = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), String.format(dataflowURL, dataflowId), null,null);			
-		HttpGet listEMPost1 = new HttpGet(listEMURI1);
-	
-		listEMPost1.setConfig(requestConfig);
-		listEMPost1.addHeader("Authorization","OAuth "+sessionID);			
-	
-		CloseableHttpResponse emresponse1 = httpClient.execute(listEMPost1);
-	
-		String reasonPhrase = emresponse1.getStatusLine().getReasonPhrase();
-		int statusCode = emresponse1.getStatusLine().getStatusCode();
-//		if (statusCode != HttpStatus.SC_OK) {
-//			throw new IOException(String.format("Dataflow %s download failed: %d %s", dataflowAlias,statusCode,reasonPhrase));
-//		}
-	
-		HttpEntity emresponseEntity1 = emresponse1.getEntity();
-		InputStream emis1 = emresponseEntity1.getContent();
+		URI listEMURI1 = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), String.format(dataflowURL, dataflowId), null,null);
+		
+		RequestResponse<InputStream> reqResponse = null;
+		try {
+			reqResponse = apiCaller.Call(listEMURI1.toURL(), httpHeaders, "", "GET");
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		int statusCode = reqResponse.status;
+
+		InputStream emis1 = reqResponse.response;
 		String dataFlowJson = IOUtils.toString(emis1, "UTF-8");								
 		emis1.close();
-		httpClient.close();
 
 		ObjectMapper mapper = new ObjectMapper();	
 		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 		
-		
+		String reasonPhrase = "";
 		if (statusCode != HttpStatus.SC_OK) 
 	    {
 			String errorCode = statusCode+"";
@@ -307,28 +307,38 @@ public class DataFlowUtil {
 		ConnectorConfig config = partnerConnection.getConfig();			
 		String sessionID = config.getSessionId();
 		String serviceEndPoint = config.getServiceEndpoint();
+		HashMap<String, String> httpHeaders = new HashMap<String, String>();
+		Requests apiCaller = new Requests();
+		
+		httpHeaders.put("Authorization", "OAuth "+sessionID);
 
-		CloseableHttpClient httpClient = HttpUtils.getHttpClient();
-		RequestConfig requestConfig = HttpUtils.getRequestConfig();
+
+		//CloseableHttpClient httpClient = HttpUtils.getHttpClient();
+		//RequestConfig requestConfig = HttpUtils.getRequestConfig();
 
 		URI u = new URI(serviceEndPoint);
 
-		URI listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), "/insights/internal_api/v1.0/esObject/workflow", null,null);			
-		HttpGet listEMPost = new HttpGet(listEMURI);
-
-		listEMPost.setConfig(requestConfig);
-		listEMPost.addHeader("Authorization","OAuth "+sessionID);			
-		CloseableHttpResponse emresponse = httpClient.execute(listEMPost);
-		   String reasonPhrase = emresponse.getStatusLine().getReasonPhrase();
-	       int statusCode = emresponse.getStatusLine().getStatusCode();
+		URI listEMURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), "/insights/internal_api/v1.0/esObject/workflow", null,null);
+		RequestResponse<InputStream> reqResponse = null;
+		try {
+			reqResponse = apiCaller.Call(listEMURI.toURL(), httpHeaders, "", "GET");
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		String reasonPhrase= "";
+	     int statusCode = reqResponse.status;
 //	       if (statusCode != HttpStatus.SC_OK) {
 //		       throw new IOException(String.format("List Dataflow failed: %d %s", statusCode,reasonPhrase));
 //	       }
-		HttpEntity emresponseEntity = emresponse.getEntity();
-		InputStream emis = emresponseEntity.getContent();			
+		
+		InputStream emis = reqResponse.response;			
 		String emList = IOUtils.toString(emis, "UTF-8");
 		emis.close();
-		httpClient.close();
 		
 	       if (statusCode != HttpStatus.SC_OK) 
 	       {
@@ -450,31 +460,38 @@ public class DataFlowUtil {
 		ConnectorConfig config = partnerConnection.getConfig();			
 		String sessionID = config.getSessionId();
 		String serviceEndPoint = config.getServiceEndpoint();
+		HashMap<String, String> httpHeaders = new HashMap<String, String>();
+		Requests apiCaller = new Requests();
+		
+		httpHeaders.put("Authorization", "OAuth "+sessionID);
 
-		CloseableHttpClient httpClient = HttpUtils.getHttpClient();
-		RequestConfig requestConfig = HttpUtils.getRequestConfig();
+		//CloseableHttpClient httpClient = HttpUtils.getHttpClient();
+		//RequestConfig requestConfig = HttpUtils.getRequestConfig();
 		
 		URI u = new URI(serviceEndPoint);
 
 		//URI patchURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), String.format(dataflowURL, dataflowId).replace("json", "start"), null,null);		
 		
 		URI patchURI = new URI(u.getScheme(),u.getUserInfo(), u.getHost(), u.getPort(), dataflowRunURL, null,null);
+		
+		RequestResponse<InputStream> reqResponse = null;
+		try {
+			reqResponse = apiCaller.Call(patchURI.toURL(), httpHeaders, "{\"command\":\"start\",\"dataflowId\":\""+dataflowId+"\"}", "POST");
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
   
-		HttpPost httpPost = new HttpPost(patchURI);
-        StringEntity params =new StringEntity("{\"command\":\"start\",\"dataflowId\":\""+dataflowId+"\"}");
         System.out.println("DataflowId " +dataflowId);
-        httpPost.setConfig(requestConfig);
-        httpPost.addHeader("content-type", "application/json");
-        httpPost.addHeader("Authorization","OAuth "+sessionID);
-        httpPost.setEntity(params);		
-		CloseableHttpResponse emresponse = httpClient.execute(httpPost);
-	   String reasonPhrase = emresponse.getStatusLine().getReasonPhrase();
-       int statusCode = emresponse.getStatusLine().getStatusCode();
-		HttpEntity emresponseEntity = emresponse.getEntity();
-		InputStream emis = emresponseEntity.getContent();			
+	
+        String reasonPhrase= "";
+        int statusCode = reqResponse.status;
+		InputStream emis = reqResponse.response;			
 		String emList = IOUtils.toString(emis, "UTF-8");
 		emis.close();
-		httpClient.close();
 
 		if (statusCode != HttpStatus.SC_CREATED ) 
 	       {

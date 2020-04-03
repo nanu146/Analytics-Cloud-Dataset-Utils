@@ -25,6 +25,7 @@
  */
 package com.sforce.dataset;
 
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -62,6 +63,8 @@ import com.sforce.dataset.util.SfdcUtils;
 import com.sforce.dataset.util.XmdUploader;
 import com.sforce.soap.partner.PartnerConnection;
 import com.sforce.ws.ConnectionException;
+import com.sforce.dataset.ProxyParams;
+import com.sforce.dataset.PartnerConnectManager;
 
 @SuppressWarnings("deprecation")
 public class DatasetUtilMain {
@@ -70,6 +73,9 @@ public class DatasetUtilMain {
 	private static final boolean isJdk14LoggerConfigured = DatasetUtils.configureLog4j();	
 	
 	public static final String[][] validActions = {{"load","Load CSV"}, {"downloadXMD","Download All XMD Json Files"}, {"uploadXMD","Upload User XMD Json File"}, {"detectEncoding","Detect file encoding"}, {"downloadErrorFile","Fetch CSV Upload Error Report"}};
+	public static ProxyParams proxySettings = new ProxyParams();
+	public static PartnerConnection partnerConnection;
+	public static PartnerConnectManager partnerConnectManager;
 
 	public static void main(String[] args) {
 
@@ -122,6 +128,32 @@ public class DatasetUtilMain {
 				if(args[i-1].equalsIgnoreCase("--help") || args[i-1].equalsIgnoreCase("-help") || args[i-1].equalsIgnoreCase("help"))
 				{
 					printUsage();
+				}
+				else if(args[i-1].equalsIgnoreCase("--proxyIP"))
+				{
+					proxySettings.proxyIP = args[i];
+				}
+				else if(args[i-1].equalsIgnoreCase("--proxyPort"))
+				{
+					// try parsing proxyPort, exit if the input is not a number
+					try 
+					{  
+						proxySettings.proxyPort = Integer.parseInt(args[i]);  
+				    } 
+					catch (NumberFormatException e) 
+					{  
+						System.out.println("proxyPort is expecting a number instead got {\"+args[i]+\"}");
+						System.exit(-1); 
+				    } 
+					
+				}
+				else if(args[i-1].equalsIgnoreCase("--proxyUserName"))
+				{
+					proxySettings.proxyUserName = args[i];
+				}
+				else if(args[i-1].equalsIgnoreCase("--proxyPassword"))
+				{
+					proxySettings.proxyPassword = args[i];
 				}
 				else if(args[i-1].equalsIgnoreCase("--u"))
 				{
@@ -316,6 +348,9 @@ public class DatasetUtilMain {
 			}
 		}
 		
+		// initating proxy settings class
+		
+		proxySettings = initProxySettings(proxySettings);
 
 		if(params.server)
 		{
@@ -420,7 +455,8 @@ public class DatasetUtilMain {
 		if(params.username!=null || params.sessionId != null)
 		{
 			try {
-				partnerConnection  = DatasetUtils.login(0, params.username, params.password, params.token, params.endpoint, params.sessionId, params.debug);
+				partnerConnectManager = PartnerConnectManager.initialize(params.username, params.password,  params.token, params.endpoint, params.sessionId, proxySettings);
+				partnerConnection  = partnerConnectManager.login(0, params.debug);
 			} catch (ConnectionException e) {
 				e.printStackTrace();
 				System.exit(-1);
@@ -461,7 +497,7 @@ public class DatasetUtilMain {
 				params = new DatasetUtilParams();
 				getRequiredParams(action, partnerConnection, params);
 				@SuppressWarnings("unused")
-				boolean status = doAction(action, partnerConnection, params);
+				boolean status = doAction(action, partnerConnection, params, proxySettings);
 //				if(status)
 //				{
 //					if(action.equalsIgnoreCase("load") && params.debug)
@@ -470,7 +506,7 @@ public class DatasetUtilMain {
 			}
 		}else
 		{
-			boolean status = doAction(action, partnerConnection, params);
+			boolean status = doAction(action, partnerConnection, params, proxySettings);
 			if(!status)
 			{
 				System.exit(-1);
@@ -478,7 +514,10 @@ public class DatasetUtilMain {
 		}		
 	}
 
-
+	public static ProxyParams initProxySettings(ProxyParams settings) {
+		ProxyParams proxySettings = ProxyParams.initialize(settings.proxyIP, settings.proxyPort, settings.proxyUserName, settings.proxyPassword);
+		return proxySettings;
+	}
 	public static void printUsage()
 	{
 		System.out.println("\n*******************************************************************************");					
@@ -623,7 +662,7 @@ public class DatasetUtilMain {
 		String selectedAction = "load";
 	    DecimalFormat df = new DecimalFormat("00");
 	    df.setMinimumIntegerDigits(2);
-		int cnt = 1;
+	    int cnt = 1;
 			for(String[] action:validActions)
 			{
 				if(cnt==1)
@@ -665,7 +704,7 @@ public class DatasetUtilMain {
 			}
 		}
 	
-	public static boolean doAction(String action, PartnerConnection partnerConnection, DatasetUtilParams params)
+	public static boolean doAction(String action, PartnerConnection partnerConnection, DatasetUtilParams params,ProxyParams proxySettings)
 	{
 
 		if(action==null)
@@ -797,7 +836,7 @@ public class DatasetUtilMain {
 				}
 				
 				try {
-					DatasetDownloader.downloadEM(params.dataset, partnerConnection);
+					DatasetDownloader.downloadEM(params.dataset, partnerConnection, proxySettings);
 				} catch (Exception e) {
 					e.printStackTrace(System.out);
 					return false;
